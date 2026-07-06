@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MailAI – AI Email Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #534AB7;
+      --purple-light: #EEEDFE;
+      --purple-dark: #3C3489;
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --border: #e2e2e6;
+      --text: #1a1a1a;
+      --muted: #6b7280;
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --amber-bg: #fef3c7;
+      --amber-text: #92400e;
+      --green-bg: #d1fae5;
+      --green-text: #065f46;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Layout ── */
+    .app { display: flex; height: 100vh; }
+    .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+               display: flex; flex-direction: column; flex-shrink: 0; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+    .logo h1 { font-size: 16px; font-weight: 600; color: var(--purple); }
+    .logo p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .nav-section { padding: 14px 18px 4px; font-size: 10px; font-weight: 600;
+                   color: var(--muted); letter-spacing: .07em; text-transform: uppercase; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 18px;
+                cursor: pointer; font-size: 13px; color: var(--muted);
+                border-left: 2px solid transparent; transition: all .15s; user-select: none; }
+    .nav-item:hover { background: var(--bg); color: var(--text); }
+    .nav-item.active { color: var(--purple); font-weight: 500;
+                       border-left-color: var(--purple); background: var(--purple-light); }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .badge { margin-left: auto; background: var(--bg); border-radius: 10px;
+             padding: 1px 7px; font-size: 11px; color: var(--muted); }
+
+    /* ── Top bar ── */
+    .topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .topbar h2 { font-size: 16px; font-weight: 600; }
+    .topbar p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Content area ── */
+    .content { flex: 1; overflow-y: auto; padding: 24px; max-width: 760px; }
+
+    /* ── Form elements ── */
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; font-weight: 500;
+                   color: var(--muted); margin-bottom: 6px; }
+    .field input, .field textarea, .field select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 13px; font-family: inherit; color: var(--text);
+      background: var(--surface); transition: border-color .15s; }
+    .field textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      outline: none; border-color: var(--purple); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── Tone chips ── */
+    .tone-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .tone-chip { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+                 cursor: pointer; font-size: 12px; text-align: center; color: var(--muted);
+                 transition: all .15s; background: var(--surface); user-select: none; }
+    .tone-chip:hover { border-color: var(--purple); color: var(--purple); }
+    .tone-chip.selected { border-color: var(--purple); background: var(--purple-light);
+                          color: var(--purple-dark); font-weight: 500; }
+
+    /* ── Buttons ── */
+    .btn-primary { width: 100%; padding: 10px; background: var(--purple); color: #fff;
+                   border: none; border-radius: 8px; font-size: 13px; font-weight: 500;
+                   cursor: pointer; font-family: inherit; transition: opacity .15s; }
+    .btn-primary:hover { opacity: .88; }
+    .btn-primary:disabled { opacity: .5; cursor: default; }
+
+    /* ── Output box ── */
+    .output-box { margin-top: 20px; border: 1px solid var(--border); border-radius: 10px;
+                  overflow: hidden; background: var(--surface); }
+    .output-header { padding: 10px 14px; background: var(--bg); border-bottom: 1px solid var(--border);
+                     display: flex; align-items: center; justify-content: space-between; }
+    .output-header span { font-size: 12px; font-weight: 500; color: var(--muted); }
+    .icon-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+                padding: 4px 10px; cursor: pointer; font-size: 11px; color: var(--muted);
+                font-family: inherit; transition: all .15s; }
+    .icon-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .output-body { padding: 16px; font-size: 13px; line-height: 1.75;
+                   white-space: pre-wrap; color: var(--text); min-height: 80px; }
+
+    /* ── Loading ── */
+    .dots { display: flex; gap: 5px; align-items: center; padding: 18px 16px; }
+    .dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--purple);
+            animation: pulse 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse { 0%,100% { opacity: .2; } 50% { opacity: 1; } }
+
+    /* ── Summary chips ── */
+    .section-label { font-size: 11px; font-weight: 600; color: var(--muted);
+                     text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; margin-top: 14px; }
+    .section-label:first-child { margin-top: 0; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .chip-k  { background: var(--purple-light); color: var(--purple-dark); }
+    .chip-a  { background: var(--green-bg);     color: var(--green-text); }
+    .chip-d  { background: var(--amber-bg);     color: var(--amber-text); }
+
+    /* ── History ── */
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-card { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+                    cursor: pointer; transition: border-color .15s; background: var(--surface); }
+    .history-card:hover { border-color: var(--purple); }
+    .hc-top  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .hc-type { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+               background: var(--purple-light); color: var(--purple-dark); }
+    .hc-date { font-size: 11px; color: var(--muted); }
+    .hc-prev { font-size: 12px; color: var(--muted); white-space: nowrap;
+               overflow: hidden; text-overflow: ellipsis; }
+
+    .empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 13px; }
+    .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: .35; }
+
+    .btn-ghost { background: none; border: 1px solid var(--border); border-radius: 8px;
+                 padding: 8px 14px; font-size: 12px; color: var(--muted); cursor: pointer;
+                 font-family: inherit; transition: all .15s; margin-top: 14px; width: 100%; }
+    .btn-ghost:hover { border-color: #e11d48; color: #e11d48; }
+
+    .error-msg { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+                 padding: 10px 14px; font-size: 13px; color: #991b1b; margin-top: 14px; }
+
+    @media (max-width: 640px) {
+      .sidebar { display: none; }
+      .tone-grid { grid-template-columns: 1fr 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <h1>✉ MailAI</h1>
+      <p>AI Email Assistant</p>
+    </div>
+    <div class="nav-section">Features</div>
+    <div class="nav-item active" data-tab="compose">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Compose
+    </div>
+    <div class="nav-item" data-tab="reply">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>
+      Smart reply
+    </div>
+    <div class="nav-item" data-tab="tone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M4.93 4.93a10 10 0 000 14.14"/></svg>
+      Tone converter
+    </div>
+    <div class="nav-item" data-tab="summarize">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Summarizer
+    </div>
+    <div class="nav-section" style="margin-top:auto">Storage</div>
+    <div class="nav-item" data-tab="history" id="historyNav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      History <span class="badge" id="histBadge" style="display:none">0</span>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h2 id="tabTitle">Compose email</h2>
+      <p id="tabDesc">Tell the AI what you need to say</p>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+const BASE = "";  // same origin
+let activeTab = "compose";
+let loading = false;
+let output = "";
+let summaryData = null;
+let copied = false;
+let historyCount = 0;
+let composeTone = "professional";
+let targetTone = "professional";
+
+const tabs = {
+  compose:   { title: "Compose email",      desc: "Tell the AI what you need to say" },
+  reply:     { title: "Smart reply",         desc: "Paste a received email to generate a reply" },
+  tone:      { title: "Tone converter",      desc: "Rewrite any email in a different tone" },
+  summarize: { title: "Email summarizer",    desc: "Extract key points from long threads" },
+  history:   { title: "Email history",       desc: "Your recently generated emails" },
+};
+
+const tones = [
+  { id: "formal",       label: "Formal" },
+  { id: "professional", label: "Professional" },
+  { id: "friendly",     label: "Friendly" },
+  { id: "concise",      label: "Concise" },
+];
+
+// ── Nav ────────────────────────────────────────────────────────
+document.querySelectorAll(".nav-item").forEach(el => {
+  el.addEventListener("click", () => {
+    const tab = el.dataset.tab;
+    if (tab === activeTab) return;
+    activeTab = tab;
+    output = ""; summaryData = null;
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    el.classList.add("active");
+    document.getElementById("tabTitle").textContent = tabs[tab].title;
+    document.getElementById("tabDesc").textContent  = tabs[tab].desc;
+    renderContent();
+  });
+});
+
+// ── API calls ──────────────────────────────────────────────────
+async function post(path, body) {
+  loading = true; output = ""; summaryData = null;
+  renderContent();
+  try {
+    const res = await fetch(BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "API error");
+    return data;
+  } catch (e) {
+    output = "Error: " + e.message;
+    return null;
+  } finally {
+    loading = false;
+    renderContent();
+    updateHistoryBadge();
+  }
+}
+
+async function handleCompose() {
+  const purpose   = document.getElementById("cPurpose").value.trim();
+  const recipient = document.getElementById("cRecipient").value.trim();
+  const context   = document.getElementById("cContext").value.trim();
+  if (!purpose) return;
+  const data = await post("/api/emails/compose", { purpose, recipient: recipient||null, context: context||null, tone: composeTone });
+  if (data) output = data.output;
+  renderContent();
+}
+
+async function handleReply() {
+  const email       = document.getElementById("rEmail").value.trim();
+  const instruction = document.getElementById("rInstruction").value.trim();
+  if (!email) return;
+  const data = await post("/api/emails/reply", { email, instruction: instruction||null });
+  if (data) output = data.output;
+  renderContent();
+}
+
+async function handleTone() {
+  const email = document.getElementById("tEmail").value.trim();
+  if (!email) return;
+  const data = await post("/api/emails/convert-tone", { email, target_tone: targetTone });
+  if (data) output = data.output;
+  renderContent();
+}
+
+async function handleSummarize() {
+  const thread = document.getElementById("sThread").value.trim();
+  if (!thread) return;
+  const data = await post("/api/emails/summarize", { thread });
+  if (data) { summaryData = data; output = ""; }
+  renderContent();
+}
+
+function copyOutput() {
+  const text = summaryData
+    ? `Key points:\n${summaryData.key_points.map(p => "• " + p).join("\n")}\n\nAction items:\n${summaryData.action_items.map(a => "• " + a).join("\n")}\n\nDeadlines:\n${summaryData.deadlines.map(d => "• " + d).join("\n")}`
+    : output;
+  navigator.clipboard.writeText(text).then(() => {
+    copied = true; renderContent();
+    setTimeout(() => { copied = false; renderContent(); }, 2000);
+  });
+}
+
+async function updateHistoryBadge() {
+  try {
+    const res = await fetch(BASE + "/api/history/?limit=1");
+    const hdr = res.headers.get("X-Total-Count");
+    const data = await res.json();
+    historyCount = Array.isArray(data) ? data.length : 0;
+    const badge = document.getElementById("histBadge");
+    if (badge) { badge.style.display = historyCount ? "" : "none"; badge.textContent = historyCount; }
+  } catch (_) {}
+}
+
+async function loadHistory() {
+  const content = document.getElementById("content");
+  content.innerHTML = `<div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  try {
+    const res  = await fetch(BASE + "/api/history/?limit=20");
+    const list = await res.json();
+    if (!Array.isArray(list) || !list.length) {
+      content.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><p>No emails yet.<br>Use any feature above to get started.</p></div>`;
+      return;
+    }
+    content.innerHTML = `
+      <div class="history-list">
+        ${list.map(h => `
+          <div class="history-card" onclick="viewHistoryItem(${h.id})">
+            <div class="hc-top">
+              <span class="hc-type">${h.type}</span>
+              <span class="hc-date">${new Date(h.created_at).toLocaleDateString()}</span>
+            </div>
+            <div class="hc-prev">${h.prompt_preview}</div>
+          </div>`).join("")}
+      </div>
+      <button class="btn-ghost" onclick="clearHistory()">Clear all history</button>`;
+  } catch (e) {
+    content.innerHTML = `<div class="error-msg">Failed to load history: ${e.message}</div>`;
+  }
+}
+
+async function viewHistoryItem(id) {
+  const res  = await fetch(BASE + `/api/history/${id}`);
+  const data = await res.json();
+  output = data.output;
+  activeTab = "compose";
+  document.querySelectorAll(".nav-item").forEach(n =>
+    n.classList.toggle("active", n.dataset.tab === "compose"));
+  document.getElementById("tabTitle").textContent = tabs.compose.title;
+  document.getElementById("tabDesc").textContent  = tabs.compose.desc;
+  renderContent();
+}
+
+async function clearHistory() {
+  if (!confirm("Delete all history?")) return;
+  await fetch(BASE + "/api/history/", { method: "DELETE" });
+  loadHistory();
+}
+
+// ── Tone chip selection ────────────────────────────────────────
+function selectComposeTone(val) {
+  composeTone = val;
+  document.querySelectorAll("[data-compose-tone]").forEach(el =>
+    el.classList.toggle("selected", el.dataset.composeTone === val));
+}
+function selectTargetTone(val) {
+  targetTone = val;
+  document.querySelectorAll("[data-target-tone]").forEach(el =>
+    el.classList.toggle("selected", el.dataset.targetTone === val));
+}
+
+// ── Output HTML ────────────────────────────────────────────────
+function outputHTML() {
+  if (!output && !summaryData && !loading) return "";
+  let inner = "";
+  if (loading) {
+    inner = `<div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  } else if (output.startsWith("Error:")) {
+    return `<div class="error-msg">${output}</div>`;
+  } else if (summaryData) {
+    inner = `<div class="output-body">
+      <div class="section-label">Key points</div>
+      <div class="chips">${summaryData.key_points.map(p => `<span class="chip chip-k">${p}</span>`).join("")}</div>
+      ${summaryData.action_items.length ? `<div class="section-label">Action items</div><div class="chips">${summaryData.action_items.map(a => `<span class="chip chip-a">${a}</span>`).join("")}</div>` : ""}
+      ${summaryData.deadlines.length ? `<div class="section-label">Deadlines</div><div class="chips">${summaryData.deadlines.map(d => `<span class="chip chip-d">${d}</span>`).join("")}</div>` : ""}
+    </div>`;
+  } else {
+    inner = `<div class="output-body">${output}</div>`;
+  }
+  return `
+    <div class="output-box">
+      <div class="output-header">
+        <span>✨ AI output</span>
+        <button class="icon-btn" onclick="copyOutput()">${copied ? "✓ Copied!" : "Copy"}</button>
+      </div>
+      ${inner}
+    </div>`;
+}
+
+// ── Render content ─────────────────────────────────────────────
+function renderContent() {
+  const el = document.getElementById("content");
+  if (!el) return;
+  if (activeTab === "history") { loadHistory(); return; }
+
+  const toneChips = (attr, current) =>
+    tones.map(t => `<div class="tone-chip${t.id === current ? " selected" : ""}" data-${attr}="${t.id}" onclick="${attr === "compose-tone" ? "selectComposeTone" : "selectTargetTone"}('${t.id}')">${t.label}</div>`).join("");
+
+  const panels = {
+    compose: `
+      <div class="field">
+        <label>What is this email about? *</label>
+        <input id="cPurpose" type="text" placeholder="e.g. Request 3 days leave for a family event" />
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Recipient / role</label><input id="cRecipient" type="text" placeholder="e.g. My manager, Priya" /></div>
+        <div class="field"><label>Additional context</label><input id="cContext" type="text" placeholder="e.g. Dates: June 20–22" /></div>
+      </div>
+      <div class="field"><label>Tone</label><div class="tone-grid">${toneChips("compose-tone", composeTone)}</div></div>
+      <button class="btn-primary" onclick="handleCompose()" ${loading ? "disabled" : ""}>Generate email →</button>
+      ${outputHTML()}`,
+
+    reply: `
+      <div class="field"><label>Paste the email you received *</label><textarea id="rEmail" placeholder="From: someone@email.com&#10;Subject: Team meeting tomorrow&#10;&#10;Hi, can we schedule a call at 2 PM?"></textarea></div>
+      <div class="field"><label>How should you reply? (optional)</label><input id="rInstruction" type="text" placeholder="e.g. Confirm but suggest 3 PM instead" /></div>
+      <button class="btn-primary" onclick="handleReply()" ${loading ? "disabled" : ""}>Generate reply →</button>
+      ${outputHTML()}`,
+
+    tone: `
+      <div class="field"><label>Paste the email to convert *</label><textarea id="tEmail" placeholder="hey just wanted to check if u got my report thx" style="min-height:120px"></textarea></div>
+      <div class="field"><label>Convert to</label><div class="tone-grid">${toneChips("target-tone", targetTone)}</div></div>
+      <button class="btn-primary" onclick="handleTone()" ${loading ? "disabled" : ""}>Convert tone →</button>
+      ${outputHTML()}`,
+
+    summarize: `
+      <div class="field"><label>Paste the email thread *</label><textarea id="sThread" placeholder="Paste a long email chain here..." style="min-height:140px"></textarea></div>
+      <button class="btn-primary" onclick="handleSummarize()" ${loading ? "disabled" : ""}>Summarize thread →</button>
+      ${outputHTML()}`,
+  };
+
+  el.innerHTML = panels[activeTab] || "";
+}
+
+// ── Boot ────────────────────────────────────────────────────────
+renderContent();
+updateHistoryBadge();
+</script>
+</body>
+</html>
