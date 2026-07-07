@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # MailAI — AI Email Assistant
 
 A full-stack AI-powered email assistant built with **FastAPI**, **Gemini API**, **MySQL**, and vanilla **HTML/CSS/JS**.
@@ -220,3 +221,6 @@ FastAPI auto-generates docs at:
 | Validation | Pydantic v2 |
 | Frontend | HTML / CSS / Vanilla JS |
 | Server | Uvicorn (ASGI) |
+=======
+# Email-generator
+>>>>>>> 6ac2df07b1d13d5d784cd6f33b4b340ae66b53d8
